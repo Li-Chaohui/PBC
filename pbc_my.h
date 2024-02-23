@@ -228,8 +228,8 @@ void Zr::clear(){
 }
 
 Zr Zr::invert(){
-        Zr zr_r;
-        element_invert(zr_r.e,e);
-        return zr_r;
-    }
+    Zr zr_r;
+    element_invert(zr_r.e,e);
+    return zr_r;
+}
 #endif //PBC_MY_H

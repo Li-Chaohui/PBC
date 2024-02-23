@@ -90,16 +90,8 @@ int main(int argc,char **argv){
     init(pairing,argc,argv);
 
     Msk m;
-    {
-        Timer t;
-        m.Encrypt();
-        cout<<"加密用时:"<<t.elapsed()<<"ms"<<endl;
-    }
-    {
-        Timer t;
-        m.Decrypt();
-        cout<<"解密用时:"<<t.elapsed()<<"ms"<<endl;
-    }
-
+    m.Encrypt();
+    m.Decrypt();
+    m.clear();
     return 0;
 }

@@ -1,14 +1,14 @@
-#include "../my.h"
-pairing_t pairing;
+#include <pbc/pbc.h>
+#include <pbc/pbc_test.h>
+#include <bits/stdc++.h>
 
-void intToCharArray(int number, char charArray[]) {
-    // 将整数转换为字符串
-    sprintf(charArray, "%d", number);
-}
+using namespace std;
+
+pairing_t pairing;
 
 //通配符取-1
 vector<vector<int>> S = {
-    {1,2},{3,4,5},{6,7,8,9},{10,11,12,13,14}
+        {1,2},{3,4,5},{6,7,8,9},{10,11,12,13,14}
 };
 
 struct Ui{
@@ -49,6 +49,7 @@ class AA{
     element_t msk,alpha,M,s;
     CT ct;
     vector<int> W;
+    SK_ID_L skl;
     //系统初始化
     void setup(){
         //初始化pk
@@ -88,18 +89,17 @@ public:
     }
 
     //密钥生成
-    SK_ID_L keygen(const vector<int> &L,string ID){
-        SK_ID_L skl;
+    void keygen(const vector<int> &L,string ID){
         //选取r
-        element_t r;
+        element_t r,tempG1,tempG2,tempG3;;
         element_init_Zr(r,pairing);
         element_random(r);
         //初始化skl
         element_init_G1(skl.D0,pairing);
-        element_init_G1(skl.D1,pairing);    
+        element_init_G1(skl.D1,pairing);
         element_init_Zr(skl.D2,pairing);
         //计算D0
-        element_t tempG1,tempG2,tempG3;
+
         element_init_G1(tempG1,pairing);
         element_init_G1(tempG2,pairing);
         element_init_G1(tempG3,pairing);
@@ -112,6 +112,7 @@ public:
         element_from_hash(ID_hash,(void*)charID,sizeof(charID));
         //ID.U0
         element_mul(tempG2,pk.U0,ID_hash);
+
         for(int i = 0;i < pk.U.size();i++){
             element_t Li_hash;
             //Li哈希
@@ -120,6 +121,8 @@ public:
             element_mul_zn(tempG3,pk.U[i].U,Li_hash);
             //求和
             element_add(tempG2,tempG2,tempG3);
+
+            element_clear(Li_hash);
         }
         //加G3
         element_add(tempG2,tempG2,pk.G3);
@@ -134,8 +137,12 @@ public:
         for(int i = 0;i < L.size();i++){
             skl.D3[i] = L[i];
         }
-        return skl;
 
+        element_clear(ID_hash);
+        element_clear(tempG1);
+        element_clear(tempG2);
+        element_clear(tempG3);
+        element_clear(r);
     }
 
     //加密
@@ -166,6 +173,9 @@ public:
                 L_to_hash(W[i],hash_w);
                 element_mul_zn(temp,pk.U[i].U,hash_w);
                 element_add(tempG1,tempG1,temp);
+
+                element_clear(hash_w);
+                element_clear(temp);
             }
             else{
                 //计算Ti
@@ -178,10 +188,12 @@ public:
         //计算E
         element_init_G1(ct.E,pairing);
         element_mul_zn(ct.E,pk.U0,s);
+
+        element_clear(tempG1);
     }
 
     //解密
-    void decrypt(SK_ID_L &skl){
+    void decrypt(){
         for(int i = 0;i < S.size();i++){
             if(skl.D3[i] != W[i]){
                 cout<<"用户访问策略不匹配"<<endl;
@@ -199,6 +211,9 @@ public:
                 L_to_hash(skl.D3[i],hash_L);
                 element_mul_zn(temp,ct.T[i].T,hash_L);
                 element_add(Cp,Cp,temp);
+
+                element_clear(hash_L);
+                element_clear(temp);
             }
         }
         element_t temp1;
@@ -224,16 +239,43 @@ public:
         else{
             cout<<"失败！"<<endl;
         }
+
+        element_clear(Cp);
+        element_clear(fz);
+        element_clear(fm);
+        element_clear(dec_m);
+        element_clear(temp1);
     }
 
-};
+    void clear(){
+        for(int i = 0;i < S.size();i++){
+            element_clear(pk.U[i].U);
+        }
 
-class User{
-public:
-    SK_ID_L skl;
-    
-    void varify(PK &pk){
-        element_t GTl,GTr,GTr1;
+        element_clear(skl.D0);
+        element_clear(skl.D1);
+        element_clear(skl.D2);
+
+        //清除pk
+        element_clear(pk.G1);
+        element_clear(pk.G2);
+        element_clear(pk.G3);
+        element_clear(pk.G);
+        element_clear(pk.U0);
+
+        element_clear(ct.C0);
+        element_clear(ct.C1);
+        element_clear(ct.C2);
+        element_clear(ct.E);
+
+        element_clear(msk);
+        element_clear(alpha);
+        element_clear(M);
+        element_clear(s);
+    }
+
+    void varify(){
+        element_t GTl,GTr,GTr1,tempG1;
         element_init_GT(GTl,pairing);
         element_init_GT(GTr,pairing);
         element_init_GT(GTr1,pairing);
@@ -241,7 +283,6 @@ public:
         pairing_apply(GTl,pk.G,skl.D0,pairing);
         pairing_apply(GTr,pk.G2,pk.G1,pairing);
 
-        element_t tempG1;
         element_init_G1(tempG1,pairing);
         element_mul_zn(tempG1,pk.U0,skl.D2);
 
@@ -251,6 +292,10 @@ public:
             L_to_hash(skl.D3[i],hash_L);
             element_mul_zn(tempG1p,pk.U[i].U,hash_L);
             element_add(tempG1,tempG1,tempG1p);
+
+            //清除临时变量
+            element_clear(hash_L);
+            element_clear(tempG1p);
         }
         element_add(tempG1,tempG1,pk.G3);
         pairing_apply(GTr1,tempG1,skl.D1,pairing);
@@ -263,7 +308,15 @@ public:
         else{
             cout<<"验证失败"<<endl;
         }
+
+        element_clear(GTl);
+        element_clear(GTr);
+        element_clear(GTr1);
+        element_clear(tempG1);
     }
+
+    
+
 };
 
 int main(int argc,char** argv){
@@ -271,10 +324,12 @@ int main(int argc,char** argv){
     vector<int> W = {1,3,6,10};
     AA aa(W);
     vector<int> L = {1,3,6,10};
-    User u;
-    u.skl = aa.keygen(L,"lichaohui");
-    u.varify(aa.pk);
+    aa.keygen(L,"lichaohui");
+    aa.varify();
     aa.encrypt();
-    aa.decrypt(u.skl);
+    aa.decrypt();
+    aa.clear();
+    pairing_clear(pairing);
+
     return 0;
 }

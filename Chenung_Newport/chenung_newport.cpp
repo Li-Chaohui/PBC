@@ -59,6 +59,7 @@ private:
         element_init_Zr(msk.w,pairing);
         element_init_GT(pk.Y,pairing);
         element_init_G1(pk.G,pairing);
+
         element_random(msk.w);
         element_random(pk.G);//选取基点
         pairing_apply(pk.Y,pk.G,pk.G,pairing);
@@ -130,6 +131,8 @@ public:
             }
             element_div(temp_si_ai,Si[i],msk.a_set[i].a_star);
             element_mul_zn(sk->D_set[i].D_star,pk.G,temp_si_ai);
+            
+            
             element_clear(temp_si_ai);
         }
 
@@ -168,6 +171,7 @@ public:
                 element_mul_zn(ct.Ci[i],pk.A_set[i].A_star,r);
             }
         }
+
         element_clear(r);
         element_clear(temp_GT);
     }
@@ -230,6 +234,7 @@ public:
             element_clear(pk.A_set[i].A_star);
 
         }
+        
         element_clear(msk.w);
         element_clear(ct.C_);
         element_clear(ct.C0);
@@ -264,6 +269,8 @@ int main(int argc,char **argv){
     nist.clear();
     clear_SKl(u1);
     clear_SKl(u2);
+    delete u1;
+    delete u2;
     pairing_clear(pairing);
     return 0;
 }
