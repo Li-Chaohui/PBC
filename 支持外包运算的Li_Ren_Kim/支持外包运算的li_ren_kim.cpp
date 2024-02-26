@@ -148,9 +148,6 @@ public:
         element_init_G1(ct.C3,pairing);
         element_init_G1(ct.E,pairing);
         element_init_G1(tempG1,pairing);
-        // for(int i = 0;i < S.size();i++){
-        //     element_init_G1(ct.T[i].T,pairing);
-        // }
         //选取s，M
         element_random(s);
         element_random(M);
@@ -163,7 +160,6 @@ public:
         //计算C2 T
         element_set(ct.C2,pk.G3);
         for(int i = 0;i < S.size();i++){
-            // if(W[i] != -1){
             element_t tempmul;
             element_init_G1(tempmul,pairing);
             int_to_hash(W[i],WZr);
@@ -171,12 +167,7 @@ public:
 
             element_add(ct.C2,ct.C2,tempmul);
 
-            // element_random(ct.T[i].T);
             element_clear(tempmul);
-            // }
-            // else{
-            //     element_mul_zn(ct.T[i].T,pk.U[i].U,s);
-            // }
         }
         element_mul_zn(ct.C2,ct.C2,s);
         //计算C3
@@ -317,7 +308,6 @@ public:
         element_init_GT(fm2,pairing);
         element_init_GT(decM,pairing);
         //计算C2p
-        ecout(sk.sk1.D3);
         element_mul_zn(tempG1,ct.E,sk.sk1.D3);
         element_add(C2p,ct.C2,tempG1);
         //分子部分
@@ -330,7 +320,7 @@ public:
         pairing_apply(fm2,sk.sk2.D20,ct.C1,pairing);
         element_mul(fm1,fm1,fm2);
         //解密
-        element_div(decM,fm1,fz1);
+        element_div(decM,fz1,fm1);
         if(!element_cmp(M,decM)){
             cout<<"解密成功！"<<endl;
         }
@@ -364,9 +354,6 @@ void clearCT(CT &ct){
     element_clear(ct.C2);
     element_clear(ct.C3);
     element_clear(ct.E);
-    // for(int i = 0;i < S.size();i++){
-    //     element_clear(ct.T[i].T);
-    // }
 }
 
 int main(int argc,char** argv){

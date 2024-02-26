@@ -187,6 +187,8 @@ public:
         fm = (sk.sk1.D10 & ct.C1) * (sk.sk2.D20 & ct.C1);
         decM = fz / fm;
         if(decM == M){
+            ecout(decM.e);
+            ecout(M.e);
             cout<<"解密成功！"<<endl;
         }
         else{
@@ -198,7 +200,7 @@ public:
 int main(int argc,char** argv){
     pbc_demo_pairing_init(pairing,argc,argv);
 
-    vector<int> L = {1,1,1,1,1};
+    vector<int> L = {1,3,6,10,20};
     AA aa("lichaohui");
     KG_CSP kg;
     User u;
