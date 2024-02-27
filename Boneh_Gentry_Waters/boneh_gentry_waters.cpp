@@ -30,11 +30,6 @@ class SP{
         element_init_Zr(alpha,pairing);
         element_random(pk.G);
         element_random(alpha);
-
-        //！！！输出
-        // element_printf("%B\n",pk.G);
-        // element_printf("%B\n",alpha);
-
         //3.计算Gi
         element_t pow,temp_Zr;
         element_init_G1(Gn_1,pairing);
@@ -42,16 +37,13 @@ class SP{
         element_init_Zr(temp_Zr,pairing);
         for(int i = 1;i<=2*N;i++){
             element_set_si(pow,i);
-            // element_printf("%B\n",pow);
             element_pow_zn(temp_Zr,alpha,pow);
             element_init_G1(pk.Gi[i],pairing);
             if(i!=N+1){
                 element_mul_zn(pk.Gi[i],pk.G,temp_Zr);//2.计算Gi
-                // element_printf("Gi[%d]  =  %B\n",i,pk.Gi[i]);
             }
             else{
                 element_mul_zn(Gn_1,pk.G,temp_Zr);
-                // element_printf("%B\n",Gn_1);
             }
         }
         //4.生成主密钥
@@ -59,10 +51,6 @@ class SP{
         element_init_G1(pk.V,pairing);
         element_random(msk);//初始化主密钥
         element_mul_zn(pk.V,pk.G,msk);//计算V
-        //！！！输出
-        // element_printf("%B\n",msk);
-        // element_printf("%B\n",pk.V);
-
         //5.生成用户解密密钥
         for(int i = 1;i<=N;i++){
             element_init_G1(Di[i],pairing);
