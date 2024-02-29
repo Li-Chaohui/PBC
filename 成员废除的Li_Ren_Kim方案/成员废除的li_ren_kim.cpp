@@ -10,7 +10,7 @@ pairing_t pairing;
 
 //通配符取-1
 vector<vector<int>> S = {
-        {1,2},{3,4,5},{6,7,8,9},{10,11,12,13,14}
+        {1},{3},{6},{10},{20},{21},{22},{23},{24},{25}
 };
 
 struct Ui{
@@ -65,11 +65,12 @@ struct UK{
 struct CT2{
     element_t C0,C1,K;//C2为K
 };
-
-void ecout(element_t &t){
+//输出函数封装
+void ecout(element_t &t,string s = ""){
+    cout<<s;
     element_printf("%B\n",t);
 }
-
+//将用户属性进行哈希
 void int_to_hash(int number,element_t &t) {
     char* charArray =(char*)malloc(sizeof(char) * 10);
     sprintf(charArray, "%d", number);
@@ -77,7 +78,7 @@ void int_to_hash(int number,element_t &t) {
     element_from_hash(t,(void*)charArray,len);
     free(charArray);
 }
-
+//对用户ID进行哈希
 void toIDhash(string ID,element_t &ID_hash){
     char charID[ID.size()+1];
     strcpy(charID,ID.c_str());
@@ -86,6 +87,9 @@ void toIDhash(string ID,element_t &ID_hash){
 
 class AA{
 private:
+    /**
+     * AA系统建立
+     */
     void setup(){
         element_t alpha,alpha1,alpha2;
         //初始化
@@ -128,13 +132,17 @@ private:
 public:
     PK pk;
     element_t OK,AK,IDHash,M;
-    AA(string ID){
+    AA(string ID) {
         setup();
         //计算IDHash
-        element_init_Zr(IDHash,pairing);
-        toIDhash(ID,IDHash);
+        element_init_Zr(IDHash, pairing);
+        toIDhash(ID, IDHash);
     }
-
+    /**
+     * 根据用户属性生成密钥
+     * @param sk2
+     * @param L
+     */
     void keygen(SK2 &sk2,vector<int> &L){
         element_t r2,tempG1,ZrL;
         //初始化
@@ -158,8 +166,13 @@ public:
         element_clear(tempG1);
         element_clear(ZrL);
     }
-
+    /**
+     * 根据访问策略生成CT1
+     * @param W
+     * @param ct1
+     */
     void encrypt(vector<int> &W,CT1 &ct1){
+        cout<<"AA执行加密生成密文CT1"<<endl<<endl;
         element_t s,tempG1,WZr;
         //初始化
         element_init_Zr(s,pairing);
@@ -199,12 +212,21 @@ public:
         element_mul_zn(ct1.C3,ct1.C3,s);
         //计算E
         element_mul_zn(ct1.E,pk.U0,s);
+        //输出密文
+        ecout(ct1.C0,"CT1.C0 = ");
+        ecout(ct1.C1,"CT1.C1 = ");
+        ecout(ct1.C2,"CT1.C2 = ");
+        ecout(ct1.C3,"CT1.C3 = ");
+        ecout(ct1.E,"CT1.E = ");
+        cout<<endl;
         //清除临时变量
         element_clear(s);
         element_clear(tempG1);
         element_clear(WZr);
     }
-
+    /**
+     * 用户清除变量
+     */
     void clear(){
         element_clear(AK);
         element_clear(OK);
@@ -225,6 +247,14 @@ public:
 
 class KG_CSP{
 public:
+    /**
+     * 根据用户身份信息和属性生成密钥
+     * @param pk
+     * @param ID_hash
+     * @param L
+     * @param OK
+     * @param sk1
+     */
     void keygen(PK &pk,element_t &ID_hash,vector<int> &L,element_t &OK,SK1 &sk1){
         element_t r1,tempG1;
         //初始化
@@ -237,7 +267,6 @@ public:
         element_random(r1);
         //计算D10
         element_set(sk1.D10,OK);
-        ecout(ID_hash);
         element_mul_zn(tempG1,pk.U0,ID_hash);
         for(int i = 0;i < S.size();i++){
             element_t tempL,tempmul;
@@ -269,7 +298,12 @@ public:
 class User{
 public:
     SK sk;
-    void varify(PK &pk){
+    /**
+     * 用户对密钥进行验证
+     * @param pk
+     */
+    void verify(PK &pk){
+        cout<<"用户对产生的密钥进行验证"<<endl<<endl;
         element_t tempGTl,tempGTr1,tempGTr2,tempGTr3,tempG1,tempZr;
         //初始化
         element_init_G1(tempG1,pairing);
@@ -307,7 +341,7 @@ public:
         element_mul(tempGTr1,tempGTr1,tempGTr2);
         //验证！
         if(!element_cmp(tempGTl,tempGTr1)){
-            cout<<"验证成功！"<<endl;
+            cout<<"用户验证成功！"<<endl<<endl;
         }
         else{
             cout<<"验证失败！"<<endl;
@@ -320,8 +354,13 @@ public:
         element_clear(tempG1);
         element_clear(tempZr);
     }
-
+    /**
+     * 用户执行解密，需要验证解密正确性因此传入消息M
+     * @param ct1
+     * @param M
+     */
     void decrypt(CT1 &ct1,element_t &M){
+        cout<<endl<<"对CT1执行解密"<<endl<<endl;
         element_t C2p,tempG1,fz1,fz2,fm1,fm2,decM;
         //初始化
         element_init_G1(C2p,pairing);
@@ -346,7 +385,8 @@ public:
         //解密
         element_div(decM,fz1,fm1);
         if(!element_cmp(M,decM)){
-            cout<<"解密成功！"<<endl;
+            cout<<"解密成功！"<<endl<<endl;
+            ecout(decM,"解密恢复后的消息:");
         }
         else{
             cout<<"解密失败！"<<endl;
@@ -360,7 +400,9 @@ public:
         element_clear(fm2);
         element_clear(decM);
     }
-
+    /**
+     * 清除变量
+     */
     void clear(){
         //sk1
         element_clear(sk.sk1.D10);
@@ -375,6 +417,9 @@ public:
 class DO{
 private:
     UK uk;
+    /**
+     * DO系统建立
+     */
     void setup(){
         element_t alpha;
         //初始化
@@ -419,8 +464,12 @@ public:
             vaild.push_back(i%2==0);
         }
     }
-
+    /**
+     * DO执行加密生成CT2
+     * @param ct2
+     */
     void encrypt(CT2 &ct2){
+        cout<<"DO执行加密生成CT2"<<endl<<endl;
         element_t t;
         //初始化
         element_init_Zr(t,pairing);
@@ -442,12 +491,22 @@ public:
         //计算K
         pairing_apply(ct2.K,pk_bgw.G,pk_bgw.G_2N[N+1].G,pairing);
         element_pow_zn(ct2.K,ct2.K,t);
+        //输出密文
+        ecout(ct2.C0,"CT2.C0 = ");
+        ecout(ct2.C1,"CT2.C1 = ");
+        ecout(ct2.K,"CT2.K = ");
+        cout<<endl;
         //清除临时变量
         element_clear(t);
     }
-
-    //根据下标验证用户权限
-    bool user_varify(int i,CT2 &ct2){
+    /**
+     * 验证用户是否具备数据访问权限
+     * @param i 用户下标
+     * @param ct2
+     * @return
+     */
+    bool user_verify(int i,CT2 &ct2){
+        cout<<"对用户进行数据访问权限的验证"<<endl<<endl;
         //1.判断是否为非法下标
         if(vaild[i] == 0){
             cout<<"非法下标"<<endl;
@@ -478,7 +537,8 @@ public:
         element_clear(temp_GT2);
 
         if(element_cmp(temp_k,ct2.K)==0){
-            cout<<"访问权限验证成功！"<<endl;
+            cout<<"访问权限验证成功！获得CT1访问权限"<<endl<<endl;
+            ecout(temp_k,"恢复密钥:");
             element_clear(temp_k);
             return true;
         }
@@ -488,7 +548,9 @@ public:
             return false;
         }
     }
-
+    /**
+     * 清除变量
+     */
     void clear(){
         element_clear(pk_bgw.G);
         element_clear(pk_bgw.V);
@@ -501,7 +563,11 @@ public:
         }
     }
 };
-
+/**
+ * 清除变量
+ * @param ct1
+ * @param ct2
+ */
 void clearCT(CT1 &ct1,CT2 &ct2){
     element_clear(ct1.C0);
     element_clear(ct1.C1);
@@ -516,7 +582,8 @@ void clearCT(CT1 &ct1,CT2 &ct2){
 
 int main(int argc,char** argv){
     pbc_demo_pairing_init(pairing,argc,argv);
-    vector<int> L = {1,3,6,10,20};
+    cout<<"在双线性群环境下进行测试"<<endl<<endl;
+    vector<int> L = {1,3,6,10,12,13,14,15,16,17,20};
     AA aa("lichaohui");
     KG_CSP kg;
     DO dO;
@@ -527,16 +594,20 @@ int main(int argc,char** argv){
     kg.keygen(aa.pk,aa.IDHash,L,aa.OK,u.sk.sk1);
     aa.keygen(u.sk.sk2,L);
     //用户对密钥进行验证
-    u.varify(aa.pk);
+    u.verify(aa.pk);
+    //执行加密
     aa.encrypt(L,ct1);
     dO.encrypt(ct2);
     //对用户的文件访问权限进行验证
-    if(dO.user_varify(2,ct2)){
+    if(dO.user_verify(2,ct2)){
         u.decrypt(ct1,aa.M);
     }
     else{
         cout<<"访问终止,用户不具备密文下载权限"<<endl;
     }
+    //用户追踪
+    cout<<endl<<"用户追踪："<<endl;
+    ecout(u.sk.sk1.D3,"用户IDHash:");
     //清除变量
     clearCT(ct1,ct2);
     aa.clear();
