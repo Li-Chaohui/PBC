@@ -4,14 +4,24 @@
 
 using namespace std;
 //用户数量
-#define N 10
+#define n 10
+#define m 10
+
+std::chrono::duration<double> AA_setup_time,
+Keygen_kscsp_time,
+Keygen_aa_time,
+user_verify_time,
+DO_setup_time,
+DO_keygen_time,
+Encrypt_CT1_time,
+Encrypt_CT2_time,
+Decrypt_CT2_time,
+Decrypt_CT1_time;
 
 pairing_t pairing;
 
 //通配符取-1
-vector<vector<int>> S = {
-        {1},{3},{6},{10},{20},{21},{22},{23},{24},{25}
-};
+vector<int> S(m,1);
 
 struct Ui{
     element_t U;
@@ -49,7 +59,7 @@ struct Gi{
 struct PK_BGW{
     element_t G,V;
     vector<Gi> G_2N;
-    PK_BGW():G_2N(2*N+1){}
+    PK_BGW():G_2N(2*n+1){}
 };
 
 struct Di{
@@ -59,7 +69,7 @@ struct Di{
 //用户解密密钥
 struct UK{
     vector<Di> D;
-    UK():D(N+1){}
+    UK():D(n+1){}
 };
 
 struct CT2{
@@ -133,7 +143,10 @@ public:
     PK pk;
     element_t OK,AK,IDHash,M;
     AA(string ID) {
+        auto start = std::chrono::steady_clock::now();
         setup();
+        auto end = std::chrono::steady_clock::now();
+        AA_setup_time = end - start;
         //计算IDHash
         element_init_Zr(IDHash, pairing);
         toIDhash(ID, IDHash);
@@ -434,7 +447,7 @@ private:
         //计算V
         element_pow_zn(pk_bgw.V,pk_bgw.G,msk_bgw);
         //计算Gi
-        for(int i = 1;i <= 2*N;i++){
+        for(int i = 1;i <= 2*n;i++){
             element_t pow;
             element_init_Zr(pow,pairing);
             element_init_G1(pk_bgw.G_2N[i].G,pairing);
@@ -446,7 +459,7 @@ private:
             element_clear(pow);
         }
         //计算用户解密密钥
-        for(int i = 1;i <= N;i++){
+        for(int i = 1;i <= n;i++){
             element_init_G1(uk.D[i].D,pairing);
 
             element_mul_zn(uk.D[i].D,pk_bgw.G_2N[i].G,msk_bgw);
@@ -460,7 +473,7 @@ public:
     vector<int> vaild;
     DO(){
         setup();
-        for(int i = 0;i < N+1;i++){
+        for(int i = 0;i < n+1;i++){
             vaild.push_back(i%2==0);
         }
     }
@@ -482,14 +495,14 @@ public:
         element_pow_zn(ct2.C0,pk_bgw.G,t);
         //计算C1
         element_set(ct2.C1,pk_bgw.V);
-        for(int i = 1;i <= N;i++){
+        for(int i = 1;i <= n;i++){
             if(vaild[i]){
-                element_add(ct2.C1,ct2.C1,pk_bgw.G_2N[N+1-i].G);
+                element_add(ct2.C1,ct2.C1,pk_bgw.G_2N[n+1-i].G);
             }
         }
         element_mul_zn(ct2.C1,ct2.C1,t);
         //计算K
-        pairing_apply(ct2.K,pk_bgw.G,pk_bgw.G_2N[N+1].G,pairing);
+        pairing_apply(ct2.K,pk_bgw.G,pk_bgw.G_2N[n+1].G,pairing);
         element_pow_zn(ct2.K,ct2.K,t);
         //输出密文
         ecout(ct2.C0,"CT2.C0 = ");
@@ -522,9 +535,9 @@ public:
         pairing_apply(temp_GT1,pk_bgw.G_2N[i].G,ct2.C1,pairing);
         //分母
         element_set(temp_G1,uk.D[i].D);
-        for(int j = 1;j<=N;j++){
+        for(int j = 1;j<=n;j++){
             if(j!=i && vaild[j]==1){
-                element_add(temp_G1,temp_G1,pk_bgw.G_2N[N+1-j+i].G);
+                element_add(temp_G1,temp_G1,pk_bgw.G_2N[n+1-j+i].G);
             }
         }
         pairing_apply(temp_GT2,temp_G1,ct2.C0,pairing);
@@ -555,9 +568,9 @@ public:
         element_clear(pk_bgw.G);
         element_clear(pk_bgw.V);
         element_clear(msk_bgw);
-        for(int i = 1;i <= 2*N;i++){
+        for(int i = 1;i <= 2*n;i++){
             element_clear(pk_bgw.G_2N[i].G);
-            if(i <= N){
+            if(i <= n){
                 element_clear(uk.D[i].D);
             }
         }
@@ -583,7 +596,7 @@ void clearCT(CT1 &ct1,CT2 &ct2){
 int main(int argc,char** argv){
     pbc_demo_pairing_init(pairing,argc,argv);
     cout<<"在双线性群环境下进行测试"<<endl<<endl;
-    vector<int> L = {1,3,6,10,12,13,14,15,16,17,20};
+    vector<int> L(m+1,1);
     AA aa("lichaohui");
     KG_CSP kg;
     DO dO;
@@ -591,15 +604,32 @@ int main(int argc,char** argv){
     CT1 ct1;
     CT2 ct2;
     //执行密钥产生
+    auto start = std::chrono::steady_clock::now();
     kg.keygen(aa.pk,aa.IDHash,L,aa.OK,u.sk.sk1);
+    auto end = std::chrono::steady_clock::now();
+    Keygen_aa_time = end - start;
+    start = std::chrono::steady_clock::now();
     aa.keygen(u.sk.sk2,L);
+    end = std::chrono::steady_clock::now();
+    Keygen_kscsp_time = end - start;
     //用户对密钥进行验证
+    start = std::chrono::steady_clock::now();
     u.verify(aa.pk);
+    end = std::chrono::steady_clock::now();
+    user_verify_time = end - start;
     //执行加密
+    start = std::chrono::steady_clock::now();
     aa.encrypt(L,ct1);
+    end = std::chrono::steady_clock::now();
+    Encrypt_CT1_time = end - start;
+    start = std::chrono::steady_clock::now();
     dO.encrypt(ct2);
+    end = std::chrono::steady_clock::now();
+    Encrypt_CT2_time = end - start;
     //对用户的文件访问权限进行验证
-    if(dO.user_verify(2,ct2)){
+    start = std::chrono::steady_clock::now();
+    bool is_verify =  dO.user_verify(2,ct2);
+    if(is_verify){
         u.decrypt(ct1,aa.M);
     }
     else{
