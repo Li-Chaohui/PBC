@@ -7,7 +7,15 @@ using namespace std;
 #define n 10
 #define m 10
 
-std::chrono::duration<double> AA_setup_time,
+
+void* operator new(std::size_t size) {
+    std::cout << "Allocating " << size << " bytes\n";
+    return malloc(size);
+}
+
+
+std::chrono::duration<double> 
+AA_setup_time,
 Keygen_kscsp_time,
 Keygen_aa_time,
 user_verify_time,
@@ -434,6 +442,7 @@ private:
      * DO系统建立
      */
     void setup(){
+        auto start = std::chrono::steady_clock::now();
         element_t alpha;
         //初始化
         element_init_Zr(alpha,pairing);
@@ -458,6 +467,9 @@ private:
 
             element_clear(pow);
         }
+        auto end = std::chrono::steady_clock::now();
+        DO_setup_time = end - start;
+        start = std::chrono::steady_clock::now();
         //计算用户解密密钥
         for(int i = 1;i <= n;i++){
             element_init_G1(uk.D[i].D,pairing);
@@ -465,6 +477,8 @@ private:
             element_mul_zn(uk.D[i].D,pk_bgw.G_2N[i].G,msk_bgw);
         }
         //清除临时变量
+        end = std::chrono::steady_clock::now();
+        DO_keygen_time = end - start;
         element_clear(alpha);
     }
 public:
@@ -629,8 +643,13 @@ int main(int argc,char** argv){
     //对用户的文件访问权限进行验证
     start = std::chrono::steady_clock::now();
     bool is_verify =  dO.user_verify(2,ct2);
+    end = std::chrono::steady_clock::now();
+    Decrypt_CT2_time = end - start;
     if(is_verify){
+        start = std::chrono::steady_clock::now();
         u.decrypt(ct1,aa.M);
+        end = std::chrono::steady_clock::now();
+        Decrypt_CT1_time = end - start;
     }
     else{
         cout<<"访问终止,用户不具备密文下载权限"<<endl;
@@ -644,5 +663,31 @@ int main(int argc,char** argv){
     dO.clear();
     u.clear();
     pairing_clear(pairing);
+    cout<<endl;
+    //输出各部分时间
+    /**
+        AA_setup_time,
+        Keygen_kscsp_time,
+        Keygen_aa_time,
+        user_verify_time,
+        DO_setup_time,
+        DO_keygen_time,
+        Encrypt_CT1_time,
+        Encrypt_CT2_time,
+        Decrypt_CT2_time,
+        Decrypt_CT1_time;
+    **/
+    cout<<"各部分时间输出"<<endl;
+    cout<<"AA_setup_time = "<<AA_setup_time.count()<<endl;
+    cout<<"Keygen_kscsp_time = "<<Keygen_kscsp_time.count()<<endl;
+    cout<<"Keygen_aa_time = "<<Keygen_aa_time.count()<<endl;
+    cout<<"user_verify_time = "<<user_verify_time.count()<<endl;
+    cout<<"DO_setup_time = "<<DO_setup_time.count()<<endl;
+    cout<<"DO_keygen_time = "<<DO_keygen_time.count()<<endl;
+    cout<<"Encrypt_CT1_time = "<<Encrypt_CT1_time.count()<<endl;
+    cout<<"Encrypt_CT2_time = "<<Encrypt_CT2_time.count()<<endl;
+    cout<<"Decrypt_CT2_time = "<<Decrypt_CT2_time.count()<<endl;
+    cout<<"Decrypt_CT1_time = "<<Decrypt_CT1_time.count()<<endl;
+
     return 0;
 }
