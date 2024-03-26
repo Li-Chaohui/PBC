@@ -4,14 +4,8 @@
 
 using namespace std;
 //用户数量
-#define n 10
+#define n 100
 #define m 10
-
-
-void* operator new(std::size_t size) {
-    std::cout << "Allocating " << size << " bytes\n";
-    return malloc(size);
-}
 
 
 std::chrono::duration<double> 
@@ -25,6 +19,18 @@ Encrypt_CT1_time,
 Encrypt_CT2_time,
 Decrypt_CT2_time,
 Decrypt_CT1_time;
+
+size_t 
+AA_setup_size,
+Keygen_kscsp_size,
+Keygen_aa_size,
+user_verify_size,
+DO_setup_size,
+DO_keygen_size,
+Encrypt_CT1_size,
+Encrypt_CT2_size,
+Decrypt_CT2_size,
+Decrypt_CT1_size;
 
 pairing_t pairing;
 
@@ -108,7 +114,8 @@ private:
     /**
      * AA系统建立
      */
-    void setup(){
+    size_t setup(){
+        size_t s;
         element_t alpha,alpha1,alpha2;
         //初始化
         element_init_Zr(alpha,pairing);
@@ -122,11 +129,13 @@ private:
         element_init_G1(pk.Un1,pairing);
         element_init_G1(OK,pairing);
         element_init_G1(AK,pairing);
+        s = 11 * sizeof(alpha);
         for(int i = 0;i < S.size();i++){
             element_init_G1(pk.U[i].U,pairing);
-
+            s += sizeof(pk.U[i].U);
             element_random(pk.U[i].U);
         }
+        //计算内存消耗
         //选取G,G2,G3,U0,Un1
         element_random(pk.G);
         element_random(pk.G2);
@@ -146,13 +155,14 @@ private:
         element_clear(alpha);
         element_clear(alpha1);
         element_clear(alpha2);
+        return s;
     }
 public:
     PK pk;
     element_t OK,AK,IDHash,M;
     AA(string ID) {
         auto start = std::chrono::steady_clock::now();
-        setup();
+        AA_setup_size = setup();
         auto end = std::chrono::steady_clock::now();
         AA_setup_time = end - start;
         //计算IDHash
@@ -164,7 +174,8 @@ public:
      * @param sk2
      * @param L
      */
-    void keygen(SK2 &sk2,vector<int> &L){
+    size_t keygen(SK2 &sk2,vector<int> &L){
+        size_t s;
         element_t r2,tempG1,ZrL;
         //初始化
         element_init_Zr(r2,pairing);
@@ -172,6 +183,8 @@ public:
         element_init_G1(tempG1,pairing);
         element_init_G1(sk2.D20,pairing);
         element_init_G1(sk2.D21,pairing);
+        //计算内存消耗
+        s = 5 * sizeof(r2);
         //选取r2
         element_random(r2);
         //计算D20
@@ -186,13 +199,15 @@ public:
         element_clear(r2);
         element_clear(tempG1);
         element_clear(ZrL);
+        return s;
     }
     /**
      * 根据访问策略生成CT1
      * @param W
      * @param ct1
      */
-    void encrypt(vector<int> &W,CT1 &ct1){
+    size_t encrypt(vector<int> &W,CT1 &ct1){
+        size_t r;
         cout<<"AA执行加密生成密文CT1"<<endl<<endl;
         element_t s,tempG1,WZr;
         //初始化
@@ -205,6 +220,7 @@ public:
         element_init_G1(ct1.C3,pairing);
         element_init_G1(ct1.E,pairing);
         element_init_G1(tempG1,pairing);
+        r = 9 * sizeof(s);
         //选取s，M
         element_random(s);
         element_random(M);
@@ -219,6 +235,7 @@ public:
         for(int i = 0;i < S.size();i++){
             element_t tempmul;
             element_init_G1(tempmul,pairing);
+            r += sizeof(tempmul);
             int_to_hash(W[i],WZr);
             element_mul_zn(tempmul,pk.U[i].U,WZr);
 
@@ -244,6 +261,7 @@ public:
         element_clear(s);
         element_clear(tempG1);
         element_clear(WZr);
+        return r;
     }
     /**
      * 用户清除变量
@@ -268,15 +286,9 @@ public:
 
 class KG_CSP{
 public:
-    /**
-     * 根据用户身份信息和属性生成密钥
-     * @param pk
-     * @param ID_hash
-     * @param L
-     * @param OK
-     * @param sk1
-     */
-    void keygen(PK &pk,element_t &ID_hash,vector<int> &L,element_t &OK,SK1 &sk1){
+    //返回使用内存的大小
+    size_t keygen(PK &pk,element_t &ID_hash,vector<int> &L,element_t &OK,SK1 &sk1){
+        size_t s;
         element_t r1,tempG1;
         //初始化
         element_init_Zr(r1,pairing);
@@ -284,6 +296,8 @@ public:
         element_init_G1(sk1.D10,pairing);
         element_init_G1(sk1.D11,pairing);
         element_init_Zr(sk1.D3,pairing);
+        //计算内存消耗
+        s = 5 * sizeof(r1);
         //生成r1
         element_random(r1);
         //计算D10
@@ -293,6 +307,8 @@ public:
             element_t tempL,tempmul;
             element_init_Zr(tempL,pairing);
             element_init_G1(tempmul,pairing);
+            //计算内存消耗
+            s += 2 * sizeof(tempL);
             int_to_hash(L[i],tempL);
             element_mul_zn(tempmul,pk.U[i].U,tempL);
             element_add(tempG1,tempG1,tempmul);
@@ -313,6 +329,8 @@ public:
         //清除临时变量
         element_clear(r1);
         element_clear(tempG1);
+
+        return s;
     }
 };
 
@@ -323,7 +341,8 @@ public:
      * 用户对密钥进行验证
      * @param pk
      */
-    void verify(PK &pk){
+    size_t verify(PK &pk){
+        size_t s;
         cout<<"用户对产生的密钥进行验证"<<endl<<endl;
         element_t tempGTl,tempGTr1,tempGTr2,tempGTr3,tempG1,tempZr;
         //初始化
@@ -333,6 +352,8 @@ public:
         element_init_GT(tempGTr2,pairing);
         element_init_GT(tempGTr3,pairing);
         element_init_Zr(tempZr,pairing);
+        //计算内存消耗
+        s = 6 * sizeof(tempG1);
         //计算左等式
         element_add(tempG1,sk.sk1.D10,sk.sk2.D20);
         pairing_apply(tempGTl,tempG1,pk.G,pairing);
@@ -344,6 +365,8 @@ public:
             element_t hashL,tempmul;
             element_init_Zr(hashL,pairing);
             element_init_G1(tempmul,pairing);
+            //计算内存消耗
+            s += 2 * sizeof(hashL);
             int_to_hash(sk.sk1.D4[i],hashL);
             element_mul_zn(tempmul,pk.U[i].U,hashL);
             element_add(tempG1,tempG1,tempmul);
@@ -374,13 +397,15 @@ public:
         element_clear(tempGTr3);
         element_clear(tempG1);
         element_clear(tempZr);
+        return s;
     }
     /**
      * 用户执行解密，需要验证解密正确性因此传入消息M
      * @param ct1
      * @param M
      */
-    void decrypt(CT1 &ct1,element_t &M){
+    size_t decrypt(CT1 &ct1,element_t &M){
+        size_t s;
         cout<<endl<<"对CT1执行解密"<<endl<<endl;
         element_t C2p,tempG1,fz1,fz2,fm1,fm2,decM;
         //初始化
@@ -391,6 +416,7 @@ public:
         element_init_GT(fm1,pairing);
         element_init_GT(fm2,pairing);
         element_init_GT(decM,pairing);
+        s = 7 * sizeof(C2p);
         //计算C2p
         element_mul_zn(tempG1,ct1.E,sk.sk1.D3);
         element_add(C2p,ct1.C2,tempG1);
@@ -420,6 +446,7 @@ public:
         element_clear(fm1);
         element_clear(fm2);
         element_clear(decM);
+        return s;
     }
     /**
      * 清除变量
@@ -442,6 +469,7 @@ private:
      * DO系统建立
      */
     void setup(){
+        size_t s1 = 0,s2 = 0;
         auto start = std::chrono::steady_clock::now();
         element_t alpha;
         //初始化
@@ -449,6 +477,7 @@ private:
         element_init_Zr(msk_bgw,pairing);
         element_init_G1(pk_bgw.G,pairing);
         element_init_G1(pk_bgw.V,pairing);
+        s1 = 4 * sizeof(alpha);
         //生成alpha G
         element_random(alpha);
         element_random(pk_bgw.G);
@@ -460,6 +489,7 @@ private:
             element_t pow;
             element_init_Zr(pow,pairing);
             element_init_G1(pk_bgw.G_2N[i].G,pairing);
+            s1 += 2 * sizeof(pow);
             element_set_si(pow,i);
 
             element_pow_zn(pow,alpha,pow);
@@ -473,13 +503,15 @@ private:
         //计算用户解密密钥
         for(int i = 1;i <= n;i++){
             element_init_G1(uk.D[i].D,pairing);
-
+            s2 += sizeof(uk.D[i].D);
             element_mul_zn(uk.D[i].D,pk_bgw.G_2N[i].G,msk_bgw);
         }
         //清除临时变量
         end = std::chrono::steady_clock::now();
         DO_keygen_time = end - start;
         element_clear(alpha);
+        DO_setup_size = s1;
+        DO_keygen_size = s2;
     }
 public:
     PK_BGW pk_bgw;
@@ -495,7 +527,8 @@ public:
      * DO执行加密生成CT2
      * @param ct2
      */
-    void encrypt(CT2 &ct2){
+    size_t encrypt(CT2 &ct2){
+        size_t s;
         cout<<"DO执行加密生成CT2"<<endl<<endl;
         element_t t;
         //初始化
@@ -503,6 +536,7 @@ public:
         element_init_G1(ct2.C0,pairing);
         element_init_G1(ct2.C1,pairing);
         element_init_GT(ct2.K,pairing);
+        s = 4 * sizeof(t);
         //随机生成t
         element_random(t);
         //计算C0
@@ -525,6 +559,7 @@ public:
         cout<<endl;
         //清除临时变量
         element_clear(t);
+        return s;
     }
     /**
      * 验证用户是否具备数据访问权限
@@ -532,19 +567,21 @@ public:
      * @param ct2
      * @return
      */
-    bool user_verify(int i,CT2 &ct2){
+    pair<bool,size_t> user_verify(int i,CT2 &ct2){
         cout<<"对用户进行数据访问权限的验证"<<endl<<endl;
         //1.判断是否为非法下标
         if(vaild[i] == 0){
             cout<<"非法下标"<<endl;
-            return false;
+            return {false,0};
         }
+        size_t s;
         //2.计算K
         element_t temp_k,temp_GT1,temp_GT2,temp_G1;
         element_init_GT(temp_k,pairing);
         element_init_GT(temp_GT1,pairing);
         element_init_GT(temp_GT2,pairing);
         element_init_G1(temp_G1,pairing);
+        s = 4 * sizeof(temp_k);
         //分子
         pairing_apply(temp_GT1,pk_bgw.G_2N[i].G,ct2.C1,pairing);
         //分母
@@ -567,12 +604,12 @@ public:
             cout<<"访问权限验证成功！获得CT1访问权限"<<endl<<endl;
             ecout(temp_k,"恢复密钥:");
             element_clear(temp_k);
-            return true;
+            return {true,s};
         }
         else{
             cout<<"访问权限验证失败"<<endl;
             element_clear(temp_k);
-            return false;
+            return {false,s};
         }
     }
     /**
@@ -618,42 +655,54 @@ int main(int argc,char** argv){
     CT1 ct1;
     CT2 ct2;
     //执行密钥产生
-    auto start = std::chrono::steady_clock::now();
-    kg.keygen(aa.pk,aa.IDHash,L,aa.OK,u.sk.sk1);
-    auto end = std::chrono::steady_clock::now();
-    Keygen_aa_time = end - start;
-    start = std::chrono::steady_clock::now();
-    aa.keygen(u.sk.sk2,L);
-    end = std::chrono::steady_clock::now();
-    Keygen_kscsp_time = end - start;
-    //用户对密钥进行验证
-    start = std::chrono::steady_clock::now();
-    u.verify(aa.pk);
-    end = std::chrono::steady_clock::now();
-    user_verify_time = end - start;
-    //执行加密
-    start = std::chrono::steady_clock::now();
-    aa.encrypt(L,ct1);
-    end = std::chrono::steady_clock::now();
-    Encrypt_CT1_time = end - start;
-    start = std::chrono::steady_clock::now();
-    dO.encrypt(ct2);
-    end = std::chrono::steady_clock::now();
-    Encrypt_CT2_time = end - start;
-    //对用户的文件访问权限进行验证
-    start = std::chrono::steady_clock::now();
-    bool is_verify =  dO.user_verify(2,ct2);
-    end = std::chrono::steady_clock::now();
-    Decrypt_CT2_time = end - start;
-    if(is_verify){
+    {
+        auto start = std::chrono::steady_clock::now();
+        Keygen_kscsp_size = kg.keygen(aa.pk,aa.IDHash,L,aa.OK,u.sk.sk1);
+        auto end = std::chrono::steady_clock::now();
+        Keygen_aa_time = end - start;
         start = std::chrono::steady_clock::now();
-        u.decrypt(ct1,aa.M);
+        Keygen_aa_size = aa.keygen(u.sk.sk2,L);
         end = std::chrono::steady_clock::now();
-        Decrypt_CT1_time = end - start;
+        Keygen_kscsp_time = end - start;
     }
-    else{
-        cout<<"访问终止,用户不具备密文下载权限"<<endl;
+    
+    //用户对密钥进行验证
+    {
+        auto start = std::chrono::steady_clock::now();
+        user_verify_size = u.verify(aa.pk);
+        auto end = std::chrono::steady_clock::now();
+        user_verify_time = end - start;
     }
+    //执行加密
+    {
+        auto start = std::chrono::steady_clock::now();
+        Encrypt_CT1_size = aa.encrypt(L,ct1);
+        auto end = std::chrono::steady_clock::now();
+        Encrypt_CT1_time = end - start;
+        start = std::chrono::steady_clock::now();
+        Encrypt_CT2_size = dO.encrypt(ct2);
+        end = std::chrono::steady_clock::now();
+        Encrypt_CT2_time = end - start;
+    }
+    
+    //对用户的文件访问权限进行验证
+    {
+        auto start = std::chrono::steady_clock::now();
+        auto t =  dO.user_verify(2,ct2);
+        Decrypt_CT2_size = t.second;
+        auto end = std::chrono::steady_clock::now();
+        Decrypt_CT2_time = end - start;
+        if(t.first){
+            start = std::chrono::steady_clock::now();
+            Decrypt_CT1_size = u.decrypt(ct1,aa.M);
+            end = std::chrono::steady_clock::now();
+            Decrypt_CT1_time = end - start;
+        }
+        else{
+            cout<<"访问终止,用户不具备密文下载权限"<<endl;
+        }
+    }
+    
     //用户追踪
     cout<<endl<<"用户追踪："<<endl;
     ecout(u.sk.sk1.D3,"用户IDHash:");
@@ -688,6 +737,19 @@ int main(int argc,char** argv){
     cout<<"Encrypt_CT2_time = "<<Encrypt_CT2_time.count()<<endl;
     cout<<"Decrypt_CT2_time = "<<Decrypt_CT2_time.count()<<endl;
     cout<<"Decrypt_CT1_time = "<<Decrypt_CT1_time.count()<<endl;
+
+    //输出各部分内存消耗
+    cout<<"各部分内存消耗输出"<<endl;
+    cout<<"AA_setup_size = "<<AA_setup_size<<endl;
+    cout<<"Keygen_kscsp_size = "<<Keygen_kscsp_size<<endl;
+    cout<<"Keygen_aa_size = "<<Keygen_aa_size<<endl;
+    cout<<"user_verify_size = "<<user_verify_size<<endl;
+    cout<<"DO_setup_size = "<<DO_setup_size<<endl;
+    cout<<"DO_keygen_size = "<<DO_keygen_size<<endl;
+    cout<<"Encrypt_CT1_size = "<<Encrypt_CT1_size<<endl;
+    cout<<"Encrypt_CT2_size = "<<Encrypt_CT2_size<<endl;
+    cout<<"Decrypt_CT2_size = "<<Decrypt_CT2_size<<endl;
+    cout<<"Decrypt_CT1_size = "<<Decrypt_CT1_size<<endl;
 
     return 0;
 }
